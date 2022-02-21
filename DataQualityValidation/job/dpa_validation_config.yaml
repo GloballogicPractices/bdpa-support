@@ -1,0 +1,167 @@
+job_name: 'demo_ds-20220101T010100'
+datasource_name: 'demo_ds'
+data_entities: ['name_basics', 'title_ratings', 'title_principals']
+
+execution_engine: 'GLUE'
+
+metadata:
+  bookmark_location: ''
+  # report_storage_path: 's3://some-bucket-name/metadata'
+
+tasks: null
+
+execute_task: null
+success_task: null
+failure_task: null
+
+steps:
+  - step_name: step_1
+    source: 
+      component_name: 'CloudBlobStorageComponent'
+      module_name: 'dpa.component.storage.cloud_blob'
+      component_config: 
+        data_path: 's3://gl-dpa-dqva/data/source/$entity_name'
+        data_format: csv
+        data_compression: gzip
+        partition_key: 'job_id'
+        data_separator: '\t'
+        header_flag: True
+      entities:
+        name_basics:
+          columns_list: "nconst:string|primaryname:string|birthyear:string|deathyear:string|primaryprofession:string|knownfortitles:string"
+        title_ratings:
+          columns_list: "tconst:string|averagerating:double|numvotes:long"
+        title_principals:
+          columns_list: "tconst:string|ordering:integer|nconst:string|category:string|job:string|characters:string"
+
+    sink:
+      component_name: 'CloudBlobStorageComponent'
+      module_name: 'dpa.component.storage.cloud_blob'
+      component_config: 
+        data_path: 's3://gl-dpa-dqva/data/sink/$entity_name/$partition_key=$job_id'
+        data_format: parquet
+        data_compression: gzip
+        partition_key: 'job_id'
+        data_separator: null
+        header_flag: null
+      entities:
+        name_basics:
+          columns_list: "nconst:string|primaryname:string|birthyear:string|deathyear:string|primaryprofession:string|knownfortitles:string"
+        title_ratings:
+          columns_list: "tconst:string|averagerating:double|numvotes:long"
+        title_principals:
+          columns_list: "tconst:string|ordering:integer|nconst:string|category:string|job:string|characters:string"
+
+    transform: null
+
+    validate:
+      - component_name: 'CompareRowCountValidator'
+        module_name: 'dpa.component.validator.compare_validators'
+        component_config: 
+          name_basics:
+            - { 'source_column': '*', 'target_column': '*', 'aggregation': 'COUNT' }
+          title_ratings:
+            - { 'source_column': '*', 'target_column': '*', 'aggregation': 'COUNT' }
+          title_principals:
+            - { 'source_column': '*', 'target_column': '*', 'aggregation': 'COUNT' }
+
+      - component_name: 'CompareColumnValueValidator'
+        module_name: 'dpa.component.validator.compare_validators'
+        component_config: 
+          name_basics:
+            - { 'source_column': 'primaryname', 'target_column': 'primaryname', 'aggregation': 'SUM_LEN' }
+          title_ratings:
+            - { 'source_column': 'numvotes', 'target_column': 'numvotes', 'aggregation': 'SUM' }
+          title_principals:
+            - { 'source_column': 'category', 'target_column': 'category', 'aggregation': 'SUM_LEN' }
+
+      - component_name: 'CompareSchemaValidator'
+        module_name: 'dpa.component.validator.compare_validators'
+        component_config: 
+          name_basics:
+            { 'ignore_source_columns': [''], 'ignore_target_columns': ['job_id'] }
+          title_ratings:
+            { 'ignore_source_columns': [''], 'ignore_target_columns': ['job_id'] }
+          title_principals:
+            { 'ignore_source_columns': [''], 'ignore_target_columns': ['job_id'] }
+
+      - component_name: 'CompareProfileValidator'
+        module_name: 'dpa.component.validator.compare_validators'
+        component_config: 
+          title_ratings:
+            - { 'source_columns': ['averagerating', 'numvotes'], 'target_columns': ['averagerating', 'numvotes'], 'statistics': ['min', 'max', 'mean', 'stddev'] }
+          title_principals:
+            - { 'source_columns': ['ordering'], 'target_columns': ['ordering'], 'statistics': ['25%', '50%', '75%'] }
+
+      - component_name: 'CompareDataValidator'
+        module_name: 'dpa.component.validator.compare_validators'
+        component_config: 
+          name_basics:
+            source_query: 'select * from src_name_basics_tmp'
+            target_query: 'select * from tgt_name_basics_tmp'
+            hash_data: false
+          title_ratings:
+            source_query: 'select * from src_title_ratings_tmp'
+            target_query: 'select * from tgt_title_ratings_tmp'
+            hash_data: true
+          title_principals:
+            source_query: 'select * from src_title_principals_tmp'
+            target_query: 'select * from tgt_title_principals_tmp'
+            hash_data: false
+
+      - component_name: 'CompareDataTransformationValidator'
+        module_name: 'dpa.component.validator.compare_validators'
+        component_config: 
+          name_basics:
+            source_query: 'select primaryname, COUNT(nconst) as cnt from src_name_basics_tmp group by primaryname order by primaryname'
+            target_query: 'select primaryname, COUNT(nconst) as cnt from tgt_name_basics_tmp group by primaryname order by primaryname'
+          title_ratings:
+            source_query: 'select averagerating, COUNT(tconst) as cnt from src_title_ratings_tmp group by averagerating order by averagerating'
+            target_query: 'select averagerating, COUNT(tconst) as cnt from tgt_title_ratings_tmp group by averagerating order by averagerating'
+          title_principals:
+            source_query: 'select category, COUNT(tconst) as cnt from src_title_principals_tmp group by category order by category'
+            target_query: 'select category, COUNT(tconst) as cnt from tgt_title_principals_tmp group by category order by category'
+
+      - component_name: 'CheckConstraintsValidator'
+        module_name: 'dpa.component.validator.check_validators'
+        component_config: 
+          name_basics:
+            - { 'column': 'primaryname', 'constraint': 'NOT_NULL' }
+          title_ratings:
+            - { 'column': 'averagerating', 'constraint': 'NON_NEGATIVE' }
+          title_principals:
+            - { 'column': 'characters', 'constraint': 'UNIQUE' }
+
+      - component_name: 'CheckDataQualityValidator'
+        module_name: 'dpa.component.validator.check_validators'
+        component_config: 
+          name_basics:
+            - { 'column': 'birthyear', 'operator': 'BETWEEN', 'value': [1850, 1990] }
+          title_ratings:
+            - { 'column': 'numvotes', 'operator': '>=', 'value': [5] }
+          title_principals:
+            - { 'column': 'ordering', 'operator': 'IN', 'value': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
+
+      - component_name: 'CheckRowCountValidator'
+        module_name: 'dpa.component.validator.check_validators'
+        component_config: 
+          name_basics:
+            - { 'column': '*', 'operator': '==', 'expected_value': 127775,  'aggregation': 'COUNT' }
+          title_ratings:
+            - { 'column': '*', 'operator': '>=', 'expected_value': 496000,  'aggregation': 'COUNT' }
+          title_principals:
+            - { 'column': '*', 'operator': '<', 'expected_value': 300000,  'aggregation': 'COUNT' }
+
+      - component_name: 'CheckSchemaValidator'
+        module_name: 'dpa.component.validator.check_validators'
+        component_config: 
+          name_basics:
+            expected_schema: "nconst:string|primaryname:string|birthyear:string|deathyear:string|primaryprofession:string|knownfortitles:string"
+          title_ratings:
+            expected_schema: "tconst:string|averagerating:double|numvotes:long"
+          title_principals:
+            expected_schema: "tconst:string|ordering:int|nconst:string|category:string|job:string|characters:string"
+
+    execute_task: null
+    success_task: null
+    failure_task: null
