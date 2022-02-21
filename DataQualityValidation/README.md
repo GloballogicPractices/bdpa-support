@@ -8,7 +8,7 @@ In the following sections, we will explore deploying and running the GlobalLogic
 ## Architecture
 The accelerator includes a library of components that help perform data quality checks and validations across the source and target data sources. 
 
-![template]( https://github.com/GloballogicPractices/bdpa-support/blob/dqv/images/DQV_Accelerator.png )
+![template]( https://github.com/GloballogicPractices/bdpa-support/blob/dqv/DataQualityValidation/images/DQV_Accelerator.png )
 
 Following are some of the validations that can be performed:
 - Check Data Completeness
@@ -28,12 +28,12 @@ Following are the pre-requisites that are required for deploying the accelerator
 ## Deploy Automated Data Validation Pipeline using AWS CloudFormation
 We will use the CloudFormation templates to create the necessary resources. Following topology architecture describes the services that will be deployed and consumed through the CloudFormation script.
 
-![template]( https://github.com/GloballogicPractices/bdpa-support/blob/dqv/images/DPA_Topography_Architecture.drawio.png )
+![template]( https://github.com/GloballogicPractices/bdpa-support/blob/dqv/DataQualityValidation/images/DPA_Topography_Architecture.drawio.png )
 
 - Login to AWS management console and select the S3 service.
 - Launch the AWS CloudFormation template with the following Launch stack button.
 
-[![ ]( https://github.com/GloballogicPractices/bdpa-support/blob/dqv/images/cloudformation-launch-stack.png )]( https://console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/new?stackName=create-glue-job&templateURL=https://s3.amazonaws.com/gl-dpa-dqva-bin/template/cfn_template.yaml )
+[![ ]( https://github.com/GloballogicPractices/bdpa-support/blob/dqv/DataQualityValidation/images/cloudformation-launch-stack.png )]( https://console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/new?stackName=create-glue-job&templateURL=https://s3.amazonaws.com/gl-dpa-dqva-bin/template/cfn_template.yaml )
 
 - Choose the region e.g. US East (N. Virginia) Region (us-east-1)
 - Add the details to the relevant parameters
